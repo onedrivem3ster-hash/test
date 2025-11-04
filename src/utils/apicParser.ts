@@ -183,33 +183,33 @@ export function extractEpgNamesFromMoquery(input: string): Map<string, string> {
   for (const line of lines) {
     if (!line.trim()) continue;
 
-    const epgMatch = line.match(/epg-([^\/]+)\//);
+    const epgMatch = line.match(/\/epg-([^\/]+)\//);
     if (epgMatch) {
-      const epg = epgMatch[1];
+      const epgRaw = epgMatch[1];
 
       let vlan = '';
 
-      const vlanMatch = line.match(/vlan-(\d+)/i);
-      if (vlanMatch) {
-        vlan = vlanMatch[1];
+      const vlanInLineMatch = line.match(/vlan-(\d+)/i);
+      if (vlanInLineMatch) {
+        vlan = vlanInLineMatch[1];
       }
 
       if (!vlan) {
-        const epgVlanMatch = epg.match(/VLAN(\d+)/i);
+        const epgVlanMatch = epgRaw.match(/VLAN(\d+)/i);
         if (epgVlanMatch) {
           vlan = epgVlanMatch[1];
         }
       }
 
       if (!vlan) {
-        const epgVlanMatch = epg.match(/(\d{3})/);
+        const epgVlanMatch = epgRaw.match(/(\d{3})/);
         if (epgVlanMatch) {
           vlan = epgVlanMatch[1];
         }
       }
 
-      if (vlan && !epgsByVlan.has(vlan)) {
-        epgsByVlan.set(vlan, epg);
+      if (vlan && epgRaw) {
+        epgsByVlan.set(vlan, epgRaw);
       }
     }
   }
@@ -339,7 +339,21 @@ export function extractPathName(path: string): string {
 
 export function extractVlanFromEpg(epgName: string): string {
   const vlanMatch = epgName.match(/VLAN(\d+)/i);
-  return vlanMatch ? vlanMatch[1] : '';
+  if (vlanMatch) {
+    return vlanMatch[1];
+  }
+
+  const threeDigitMatch = epgName.match(/(\d{3})/);
+  if (threeDigitMatch) {
+    return threeDigitMatch[1];
+  }
+
+  const anyDigitMatch = epgName.match(/(\d+)/);
+  if (anyDigitMatch) {
+    return anyDigitMatch[1];
+  }
+
+  return '';
 }
 
 export interface AutoModeEndpoint {
