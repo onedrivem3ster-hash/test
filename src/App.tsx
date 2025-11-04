@@ -11,6 +11,7 @@ import {
   extractVlanFromEpg,
   parseApicEndpointsAuto,
   extractEpgNamesFromMoquery,
+  selectBestEpgMatch,
   type ValidationResult,
   type EndpointData,
   type PathAttachment,
@@ -135,7 +136,9 @@ function App() {
       groupedByVlan.get(ep.vlan)!.push(ep);
     });
 
-    const newEntries: ValidationEntry[] = Array.from(groupedByVlan.entries()).map(([vlan, endpoints], idx) => {
+    const newEntries: ValidationEntry[] = [];
+
+    Array.from(groupedByVlan.entries()).forEach(([vlan, endpoints], idx) => {
       const allPaths = Array.from(new Set(endpoints.map(ep => ep.path)));
       const pathIPMap = new Map<string, string>();
       endpoints.forEach(ep => {
@@ -151,16 +154,25 @@ function App() {
       };
 
       const results = validateVlanAllowances(endpointData, parsedMoquery);
-      // Use EPG from moquery, or fallback to endpoint EPG, or generate default
-      const epgName = epgsByVlan.get(vlan) || endpoints[0]?.epg || `VLAN${vlan}`;
 
-      return {
+      // Get all EPGs from moquery for this VLAN
+      const epgList = epgsByVlan.get(vlan) || [endpoints[0]?.epg || `VLAN${vlan}`];
+
+      // Select best matching EPG based on endpoint IP and path info
+      const bestEpg = selectBestEpgMatch(
+        endpoints[0]?.ip || '',
+        epgList,
+        allPaths
+      );
+
+      // If only one EPG matches, use it; otherwise create entry with best match
+      newEntries.push({
         id: Date.now().toString() + idx,
         endpointInput: '',
-        epgName,
+        epgName: bestEpg || epgList[0] || `VLAN${vlan}`,
         results,
         endpointData
-      };
+      });
     });
 
     setEntries(newEntries);

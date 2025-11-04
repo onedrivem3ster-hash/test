@@ -176,9 +176,9 @@ export function parseMoqueryOutput(input: string): PathAttachment[] {
   return attachments;
 }
 
-export function extractEpgNamesFromMoquery(input: string): Map<string, string> {
+export function extractEpgNamesFromMoquery(input: string): Map<string, string[]> {
   const lines = input.trim().split('\n');
-  const epgsByVlan = new Map<string, string>();
+  const epgsByVlan = new Map<string, string[]>();
 
   for (const line of lines) {
     if (!line.trim()) continue;
@@ -209,7 +209,13 @@ export function extractEpgNamesFromMoquery(input: string): Map<string, string> {
       }
 
       if (vlan && epgRaw) {
-        epgsByVlan.set(vlan, epgRaw);
+        if (!epgsByVlan.has(vlan)) {
+          epgsByVlan.set(vlan, []);
+        }
+        const epgList = epgsByVlan.get(vlan)!;
+        if (!epgList.includes(epgRaw)) {
+          epgList.push(epgRaw);
+        }
       }
     }
   }
@@ -418,4 +424,38 @@ export function parseApicEndpointsAuto(input: string): AutoModeEndpoint[] {
   }
 
   return endpoints;
+}
+
+export function selectBestEpgMatch(
+  endpointIp: string,
+  epgList: string[],
+  allPaths: string[]
+): string {
+  if (epgList.length === 0) return '';
+  if (epgList.length === 1) return epgList[0];
+
+  // Score each EPG based on IP match and path details
+  let bestEpg = epgList[0];
+  let bestScore = 0;
+
+  for (const epg of epgList) {
+    let score = 0;
+
+    // Check if IP is in EPG name
+    if (epg.includes(endpointIp.substring(0, endpointIp.lastIndexOf('.')))) {
+      score += 10;
+    }
+
+    // Check if it's more specific (has more details like IP range)
+    if (epg.match(/\d+\.\d+\.\d+\.\d+/)) {
+      score += 5;
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestEpg = epg;
+    }
+  }
+
+  return bestEpg;
 }
